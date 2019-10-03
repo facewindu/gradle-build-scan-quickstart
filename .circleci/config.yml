@@ -5,9 +5,6 @@
 version: 2
 jobs:
   build:
-    branches:
-      only:
-        - test
     docker:
       # specify the version you desire here
       - image: circleci/openjdk:8-jdk
@@ -20,9 +17,6 @@ jobs:
       - checkout
       - run: gradle assemble
   test:
-    branches:
-      only:
-        - test
     docker:
       # specify the version you desire here
       - image: circleci/openjdk:8-jdk
@@ -35,9 +29,6 @@ jobs:
       - checkout
       - run: gradle test
   check:
-    branches:
-      only:
-        - test
     docker:
       # specify the version you desire here
       - image: circleci/openjdk:8-jdk
