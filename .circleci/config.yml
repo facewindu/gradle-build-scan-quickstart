@@ -4,7 +4,7 @@
 #
 version: 2
 jobs:
-  assemble:
+  build:
     branches:
       only:
         - test
