@@ -16,6 +16,7 @@ tagCiOrLocal()
 addCiMetadata()
 addGitMetadata()
 addTestParallelization()
+addReportingTaskIssues()
 
 void tagOs() {
     buildScan.tag System.getProperty('os.name')
@@ -162,6 +163,60 @@ void addTestParallelization() {
     }
 }
 
+void addReportingTaskIssues() {
+    gradle.taskGraph.beforeTask { Task task ->
+        // Ensure xml reports are available
+        if (task instanceof Checkstyle
+                || task instanceof CodeNarc
+                || task.class.name.contains('com.github.spotbugs.SpotBugsTask')
+        ) {
+            task.configure { t -> t.reports.xml.enabled = true }
+        }
+    }
+    gradle.taskGraph.afterTask { Task task, TaskState state ->
+        if (!state.failure) {
+            return
+        }
+        def reportFile = task.reports.xml.destination as File
+        if (!reportFile.exists()) {
+            return
+        }
+        def report = new XmlSlurper().parse(reportFile)
+        def valueName = '' as String
+        def errors = [] as List<String>
+        if (task instanceof Checkstyle) {
+            valueName = 'Checkstyle Issue'
+            errors = report.file.collect {
+                String filePath = task.project.rootProject.relativePath(it.@name.text())
+                it.error.collect { "${filePath}:${it.@line}:${it.@column} \u2192 ${it.@message}" }
+            }.flatten() as List<String>
+        } else if (task instanceof CodeNarc) {
+            valueName = 'CodeNarc Issue'
+            errors = report.Package.collect {
+                it.File.collect {
+                    String filePath = task.project.rootProject.relativePath(it.@name.text())
+                    it.Violation.collect { "${filePath}:${it.@lineNumber} \u2192 ${it.Message.text()}" }
+                }.flatten()
+            }.flatten() as List<String>
+        } else if (task.class.name.contains('com.github.spotbugs.SpotBugsTask')) {
+            valueName = 'SpotBugs Issue'
+            errors = report.BugInstance.collect { bugInstance ->
+                String type = bugInstance.@type.text()
+                def error = bugInstance.breadthFirst().findAll { it.name() == 'SourceLine' }.sort(false) { it.parent().name() as SpotBugsParent }.first()
+                String startLine = error.@start.text()
+                String endLine = error.@end.text()
+                String lineNumber = endLine == startLine ? startLine : "$startLine-$endLine"
+                "${error.@sourcepath.text()}:${lineNumber} \u2192 ${type}"
+            }.flatten() as List<String>
+        }
+        if (errors.empty) {
+            buildScan.buildScanPublished { scan -> logger.lifecycle("WARNING: No errors captured for '$task.identityPath', even though it failed.") }
+        } else {
+            errors.each { buildScan.value valueName, it }
+        }
+    }
+}
+
 static boolean isCi() {
     isJenkins() || isTeamCity() || isCircleCI() || isBamboo()
 }
@@ -218,4 +273,8 @@ static boolean isGitInstalled() {
     } catch (IOException ignored) {
         false
     }
+}
+
+enum SpotBugsParent {
+    BugInstance, Method, Class
 }
