@@ -1,2 +1,3 @@
 rootProject.name = 'gradle-build-scan-quickstart'
+include 'sub'
 

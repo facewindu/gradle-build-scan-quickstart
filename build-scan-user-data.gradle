@@ -166,16 +166,16 @@ void addTestParallelization() {
 void addReportingTaskIssues() {
     gradle.taskGraph.beforeTask { Task task ->
         // Ensure xml reports are available
-        if (task instanceof Checkstyle
-                || task instanceof CodeNarc
-                || task.class.name.contains('com.github.spotbugs.SpotBugsTask')
-        ) {
+        if (isCapturedReportingTask(task)) {
             task.configure { t -> t.reports.xml.enabled = true }
         }
     }
     gradle.taskGraph.afterTask { Task task, TaskState state ->
-        if (!state.failure) {
+        if (!isCapturedReportingTask(task)) {
             return
+        }
+        if (!state.failure) {
+            //return
         }
         def reportFile = task.reports.xml.destination as File
         if (!reportFile.exists()) {
@@ -193,8 +193,9 @@ void addReportingTaskIssues() {
         } else if (task instanceof CodeNarc) {
             valueName = 'CodeNarc Issue'
             errors = report.Package.collect {
+                def sourceDirectory = appendIfMissing(it.parent().Project.SourceDirectory.text(), '/')
                 it.File.collect {
-                    String filePath = task.project.rootProject.relativePath(it.@name.text())
+                    String filePath = task.project.rootProject.relativePath(sourceDirectory + it.@name.text())
                     it.Violation.collect { "${filePath}:${it.@lineNumber} \u2192 ${it.Message.text()}" }
                 }.flatten()
             }.flatten() as List<String>
@@ -206,7 +207,9 @@ void addReportingTaskIssues() {
                 String startLine = error.@start.text()
                 String endLine = error.@end.text()
                 String lineNumber = endLine == startLine ? startLine : "$startLine-$endLine"
-                "${error.@sourcepath.text()}:${lineNumber} \u2192 ${type}"
+                def absoluteFilePath = bugInstance.parent().Project.SrcDir.collect { it.text() }.find { it.endsWith(error.@sourcepath.text()) }
+                String relativePath = task.project.rootProject.relativePath(absoluteFilePath)
+                "${relativePath}:${lineNumber} \u2192 ${type}"
             }.flatten() as List<String>
         }
         if (errors.empty) {
@@ -277,4 +280,8 @@ static boolean isGitInstalled() {
 
 enum SpotBugsParent {
     BugInstance, Method, Class
+}
+
+static boolean isCapturedReportingTask(Task task) {
+    task instanceof Checkstyle || task instanceof CodeNarc || task.class.name.contains('com.github.spotbugs.SpotBugsTask')
 }
