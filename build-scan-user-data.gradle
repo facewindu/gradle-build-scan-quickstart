@@ -159,7 +159,7 @@ void addGitMetadata() {
 
 void addTestParallelization() {
     allprojects { p ->
-        p.tasks.withType(Test).configureEach { t -> doFirst { buildScan.value "[${t.identityPath}]#maxParallelForks", t.maxParallelForks.toString() } }
+        p.tasks.withType(Test).configureEach { t -> doFirst { buildScan.value "${t.identityPath}#maxParallelForks", t.maxParallelForks.toString() } }
     }
 }
 
@@ -174,9 +174,6 @@ void addReportingTaskIssues() {
         if (!isCapturedReportingTask(task)) {
             return
         }
-        if (!state.failure) {
-            //return
-        }
         def reportFile = task.reports.xml.destination as File
         if (!reportFile.exists()) {
             return
@@ -184,14 +181,14 @@ void addReportingTaskIssues() {
         def report = new XmlSlurper().parse(reportFile)
         def valueName = '' as String
         def errors = [] as List<String>
-        if (task instanceof Checkstyle) {
-            valueName = 'Checkstyle Issue'
+        if (ReportingTask.CHECKSTYLE.isTask(task)) {
+            valueName = 'Verification Checkstyle'
             errors = report.file.collect {
                 String filePath = task.project.rootProject.relativePath(it.@name.text())
                 it.error.collect { "${filePath}:${it.@line}:${it.@column} \u2192 ${it.@message}" }
             }.flatten() as List<String>
-        } else if (task instanceof CodeNarc) {
-            valueName = 'CodeNarc Issue'
+        } else if (ReportingTask.CODENARC.isTask(task)) {
+            valueName = 'Verification CodeNarc'
             errors = report.Package.collect {
                 def sourceDirectory = appendIfMissing(it.parent().Project.SourceDirectory.text(), '/')
                 it.File.collect {
@@ -199,8 +196,8 @@ void addReportingTaskIssues() {
                     it.Violation.collect { "${filePath}:${it.@lineNumber} \u2192 ${it.Message.text()}" }
                 }.flatten()
             }.flatten() as List<String>
-        } else if (task.class.name.contains('com.github.spotbugs.SpotBugsTask')) {
-            valueName = 'SpotBugs Issue'
+        } else if (ReportingTask.SPOTBUGS.isTask(task)) {
+            valueName = 'Verification SpotBugs'
             errors = report.BugInstance.collect { bugInstance ->
                 String type = bugInstance.@type.text()
                 def error = bugInstance.breadthFirst().findAll { it.name() == 'SourceLine' }.sort(false) { it.parent().name() as SpotBugsParent }.first()
@@ -212,11 +209,7 @@ void addReportingTaskIssues() {
                 "${relativePath}:${lineNumber} \u2192 ${type}"
             }.flatten() as List<String>
         }
-        if (errors.empty) {
-            buildScan.buildScanPublished { scan -> logger.lifecycle("WARNING: No errors captured for '$task.identityPath', even though it failed.") }
-        } else {
-            errors.each { buildScan.value valueName, it }
-        }
+        errors.each { buildScan.value valueName, it }
     }
 }
 
@@ -282,6 +275,23 @@ enum SpotBugsParent {
     BugInstance, Method, Class
 }
 
+enum ReportingTask {
+
+    CHECKSTYLE('org.gradle.api.plugins.quality.Checkstyle'),
+    CODENARC('org.gradle.api.plugins.quality.CodeNarc'),
+    SPOTBUGS('com.github.spotbugs.SpotBugsTask')
+
+    String className
+
+    private ReportingTask(String className) {
+        this.className = className
+    }
+
+    ReportingTask isTask(Task task) {
+        task.class.name.contains(className) ? this : null
+    }
+}
+
 static boolean isCapturedReportingTask(Task task) {
-    task instanceof Checkstyle || task instanceof CodeNarc || task.class.name.contains('com.github.spotbugs.SpotBugsTask')
+    ReportingTask.values().toList().any { it.isTask(task) }
 }
