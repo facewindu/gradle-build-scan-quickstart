@@ -71,8 +71,8 @@ void addCiMetadata() {
         println project.properties
         println System.properties
         println System.getenv()
-        if (project.hasProperty('teamcity.serverUrl') && project.hasProperty('teamcity.build.id')) {
-            def teamCityServerUrl = "${project.property('teamcity.serverUrl')}"
+        if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.build.id')) {
+            def teamCityServerUrl = System.getenv('SERVER_URL')
             def teamCityBuildId = project.property('teamcity.build.id')
             buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
         }
