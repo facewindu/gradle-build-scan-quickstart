@@ -229,7 +229,7 @@ static String trimAtEnd(String str) {
     ('x' + str).trim().substring(1)
 }
 
-String _teamCityServerUrl
+_teamCityServerUrl = null
 
 String getTeamCityServerUrl() {
     if (!_teamCityServerUrl) {
