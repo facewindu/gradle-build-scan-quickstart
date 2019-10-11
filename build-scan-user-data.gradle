@@ -68,17 +68,15 @@ void addCiMetadata() {
     }
 
     if (isTeamCity()) {
-        println project.properties
-        println System.properties
-        println System.getenv()
-        Properties properties = new Properties()
-        properties.load(new FileInputStream(project.property('teamcity.configuration.properties.file') as String))
-        println properties
-        String serverUrl = properties.getProperty("teamcity.serverUrl");
-        if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.build.id')) {
-            def teamCityServerUrl = System.getenv('SERVER_URL')
-            def teamCityBuildId = project.property('teamcity.build.id')
-            buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
+        def teamCityConfigurationFileProp = 'teamcity.configuration.properties.file'
+        if (project.hasProperty(teamCityConfigurationFileProp)) {
+            def properties = new Properties()
+            properties.load(new FileInputStream("${project.property(teamCityConfigurationFileProp)}"))
+            def teamCityServerUrl = properties.getProperty("teamcity.serverUrl")
+            if (teamCityServerUrl && project.hasProperty('teamcity.build.id')) {
+                def teamCityBuildId = project.property('teamcity.build.id')
+                buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
+            }
         }
         if (project.hasProperty('build.number')) {
             buildScan.value 'CI build number', project.property('build.number')
