@@ -229,14 +229,17 @@ static String trimAtEnd(String str) {
     ('x' + str).trim().substring(1)
 }
 
-_teamCityServerUrl = null
+ext {
+    String _teamCityServerUrl = null
+}
+
 
 String getTeamCityServerUrl() {
-    if (!_teamCityServerUrl) {
+    if (!project._teamCityServerUrl) {
         def properties = new Properties();
         properties.load(new FileInputStream(System.getenv('TEAMCITY_BUILD_PROPERTIES_FILE')))
         println properties
-        _teamCityServerUrl = properties.getProperty('teamcity.serverUrl')
+        project._teamCityServerUrl = properties.getProperty('teamcity.serverUrl')
     }
-    _teamCityServerUrl
+    project._teamCityServerUrl
 }
