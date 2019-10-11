@@ -68,6 +68,7 @@ void addCiMetadata() {
     }
 
     if (isTeamCity()) {
+        println System.getenv()
         if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.agent.dotnet.build_id')) {
             def teamCityServerUrl = System.getenv('SERVER_URL')
             def teamCityBuildId = project.property('teamcity.agent.dotnet.build_id')
