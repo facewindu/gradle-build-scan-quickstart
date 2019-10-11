@@ -73,9 +73,9 @@ void addCiMetadata() {
             def properties = new Properties()
             properties.load(new FileInputStream("${project.property(teamCityConfigurationFileProp)}"))
             def teamCityServerUrl = properties.getProperty("teamcity.serverUrl")
-            if (teamCityServerUrl && project.hasProperty('build.number')) {
+            def teamCityBuildTypeId = System.getProperty('teamcity.buildType.id')
+            if (teamCityServerUrl && project.hasProperty('build.number') && teamCityBuildTypeId) {
                 def teamCityBuildNumber = project.property('build.number')
-                def teamCityBuildTypeId = project.property('teamcity.build.id')
                 buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildNumber=${teamCityBuildNumber}&buildTypeId=${teamCityBuildTypeId}"
             }
         }
