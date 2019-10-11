@@ -31,7 +31,7 @@ void tagIde() {
         buildScan.tag 'IntelliJ IDEA'
     } else if (System.getProperty('eclipse.buildId')) {
         buildScan.tag 'Eclipse'
-    } else {
+    } else if (!isCi()) {
         buildScan.tag 'Cmd Line'
     }
 }
@@ -68,8 +68,8 @@ void addCiMetadata() {
     }
 
     if (isTeamCity()) {
-        if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.build.id')) {
-            def teamCityServerUrl = System.getenv('SERVER_URL')
+        if (getTeamCityServerUrl() && project.hasProperty('teamcity.build.id')) {
+            def teamCityServerUrl = getTeamCityServerUrl()
             def teamCityBuildId = project.property('teamcity.build.id')
             buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
         }
@@ -227,4 +227,16 @@ static String appendIfMissing(String str, String suffix) {
 
 static String trimAtEnd(String str) {
     ('x' + str).trim().substring(1)
+}
+
+String _teamCityServerUrl
+
+String getTeamCityServerUrl() {
+    if (!_teamCityServerUrl) {
+        def properties = new Properties();
+        properties.load(new FileInputStream(System.getenv('TEAMCITY_BUILD_PROPERTIES_FILE')))
+        println properties
+        _teamCityServerUrl = properties.getProperty('teamcity.serverUrl')
+    }
+    _teamCityServerUrl
 }
