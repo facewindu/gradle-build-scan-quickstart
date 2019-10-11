@@ -69,6 +69,8 @@ void addCiMetadata() {
 
     if (isTeamCity()) {
         println project.properties
+        println System.properties
+        println System.getenv()
         if (project.hasProperty('teamcity.serverUrl') && project.hasProperty('teamcity.build.id')) {
             def teamCityServerUrl = "${project.property('teamcity.serverUrl')}"
             def teamCityBuildId = project.property('teamcity.build.id')
