@@ -72,7 +72,7 @@ void addCiMetadata() {
         println System.properties
         println System.getenv()
         Properties properties = new Properties()
-        properties.load(new FileInputStream(System.getenv('TEAMCITY_BUILD_PROPERTIES_FILE')))
+        properties.load(new FileInputStream(project.property('teamcity.configuration.properties.file') as String))
         println properties
         String serverUrl = properties.getProperty("teamcity.serverUrl");
         if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.build.id')) {
