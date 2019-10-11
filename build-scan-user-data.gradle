@@ -68,12 +68,6 @@ void addCiMetadata() {
     }
 
     if (isTeamCity()) {
-        println 'SYSTEM PROPS'
-        println System.properties
-        println 'PROJECT PROPS'
-        println project.properties
-        println 'ENV VAR'
-        println System.getenv()
         def teamCityConfigurationFileProp = 'teamcity.configuration.properties.file'
         if (project.hasProperty(teamCityConfigurationFileProp)) {
             def properties = new Properties()
