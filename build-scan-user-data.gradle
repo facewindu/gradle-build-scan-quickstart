@@ -16,7 +16,9 @@ tagCiOrLocal()
 addCiMetadata()
 addGitMetadata()
 addTestParallelization()
-addReportingTaskIssues()
+
+// Add here other scripts, if needed
+//apply from:"${rootProject.projectDir}/<<other-script.gradle>>"
 
 void tagOs() {
     buildScan.tag System.getProperty('os.name')
@@ -29,6 +31,8 @@ void tagIde() {
         buildScan.tag 'IntelliJ IDEA'
     } else if (System.getProperty('eclipse.buildId')) {
         buildScan.tag 'Eclipse'
+    } else {
+        buildScan.tag 'Cmd Line'
     }
 }
 
@@ -67,7 +71,7 @@ void addCiMetadata() {
         if (System.getenv('SERVER_URL') && project.hasProperty('teamcity.agent.dotnet.build_id')) {
             def teamCityServerUrl = System.getenv('SERVER_URL')
             def teamCityBuildId = project.property('teamcity.agent.dotnet.build_id')
-            buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, "/")}viewLog.html?buildId=${teamCityBuildId}"
+            buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
         }
         if (System.getenv('BUILD_NUMBER')) {
             buildScan.value 'CI build number', System.getenv('BUILD_NUMBER')
@@ -163,56 +167,6 @@ void addTestParallelization() {
     }
 }
 
-void addReportingTaskIssues() {
-    gradle.taskGraph.beforeTask { Task task ->
-        // Ensure xml reports are available
-        if (isCapturedReportingTask(task)) {
-            task.configure { t -> t.reports.xml.enabled = true }
-        }
-    }
-    gradle.taskGraph.afterTask { Task task, TaskState state ->
-        if (!isCapturedReportingTask(task)) {
-            return
-        }
-        def reportFile = task.reports.xml.destination as File
-        if (!reportFile.exists()) {
-            return
-        }
-        def report = new XmlSlurper().parse(reportFile)
-        def valueName = '' as String
-        def errors = [] as List<String>
-        if (ReportingTask.CHECKSTYLE.isTask(task)) {
-            valueName = 'Verification Checkstyle'
-            errors = report.file.collect {
-                String filePath = task.project.rootProject.relativePath(it.@name.text())
-                it.error.collect { "${filePath}:${it.@line}:${it.@column} \u2192 ${it.@message}" }
-            }.flatten() as List<String>
-        } else if (ReportingTask.CODENARC.isTask(task)) {
-            valueName = 'Verification CodeNarc'
-            errors = report.Package.collect {
-                def sourceDirectory = appendIfMissing(it.parent().Project.SourceDirectory.text(), '/')
-                it.File.collect {
-                    String filePath = task.project.rootProject.relativePath(sourceDirectory + it.@name.text())
-                    it.Violation.collect { "${filePath}:${it.@lineNumber} \u2192 ${it.Message.text()}" }
-                }.flatten()
-            }.flatten() as List<String>
-        } else if (ReportingTask.SPOTBUGS.isTask(task)) {
-            valueName = 'Verification SpotBugs'
-            errors = report.BugInstance.collect { bugInstance ->
-                String type = bugInstance.@type.text()
-                def error = bugInstance.breadthFirst().findAll { it.name() == 'SourceLine' }.sort(false) { it.parent().name() as SpotBugsParent }.first()
-                String startLine = error.@start.text()
-                String endLine = error.@end.text()
-                String lineNumber = endLine == startLine ? startLine : "$startLine-$endLine"
-                def absoluteFilePath = bugInstance.parent().Project.SrcDir.collect { it.text() }.find { it.endsWith(error.@sourcepath.text()) }
-                String relativePath = task.project.rootProject.relativePath(absoluteFilePath)
-                "${relativePath}:${lineNumber} \u2192 ${type}"
-            }.flatten() as List<String>
-        }
-        errors.each { buildScan.value valueName, it }
-    }
-}
-
 static boolean isCi() {
     isJenkins() || isTeamCity() || isCircleCI() || isBamboo()
 }
@@ -239,7 +193,7 @@ String execAndGetStdout(String... args) {
         commandLine(args)
         standardOutput = stdout
     }
-    stdout.toString().trim()
+    trimAtEnd(stdout.toString())
 }
 
 void addCustomValueSearchLink(String title, Map<String, String> search) {
@@ -252,15 +206,11 @@ String customValueSearchUrl(Map<String, String> search) {
     def query = search.collect { name, value ->
         "search.names=${encodeURL(name)}&search.values=${encodeURL(value)}"
     }.join('&')
-    "${appendIfMissing(buildScan.server, "/")}scans?$query"
+    "${appendIfMissing(buildScan.server, '/')}scans?$query"
 }
 
 static String encodeURL(String url) {
     URLEncoder.encode(url, 'UTF-8')
-}
-
-static String appendIfMissing(String str, String suffix) {
-    str.endsWith(suffix) ? str : str + suffix
 }
 
 static boolean isGitInstalled() {
@@ -271,27 +221,10 @@ static boolean isGitInstalled() {
     }
 }
 
-enum SpotBugsParent {
-    BugInstance, Method, Class
+static String appendIfMissing(String str, String suffix) {
+    str.endsWith(suffix) ? str : str + suffix
 }
 
-enum ReportingTask {
-
-    CHECKSTYLE('org.gradle.api.plugins.quality.Checkstyle'),
-    CODENARC('org.gradle.api.plugins.quality.CodeNarc'),
-    SPOTBUGS('com.github.spotbugs.SpotBugsTask')
-
-    String className
-
-    private ReportingTask(String className) {
-        this.className = className
-    }
-
-    ReportingTask isTask(Task task) {
-        task.class.name.contains(className) ? this : null
-    }
-}
-
-static boolean isCapturedReportingTask(Task task) {
-    ReportingTask.values().toList().any { it.isTask(task) }
+static String trimAtEnd(String str) {
+    ('x' + str).trim().substring(1)
 }
