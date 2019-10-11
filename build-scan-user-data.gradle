@@ -68,8 +68,8 @@ void addCiMetadata() {
     }
 
     if (isTeamCity()) {
-        def teamCityServerUrl = getTeamCityServerUrl()
-        if (teamCityServerUrl && project.hasProperty('teamcity.build.id')) {
+        if (project.hasProperty('teamcity.serverUrl') && project.hasProperty('teamcity.build.id')) {
+            def teamCityServerUrl = "${project.property('teamcity.serverUrl')}"
             def teamCityBuildId = project.property('teamcity.build.id')
             buildScan.link 'TeamCity build', "${appendIfMissing(teamCityServerUrl, '/')}viewLog.html?buildId=${teamCityBuildId}"
         }
@@ -227,11 +227,4 @@ static String appendIfMissing(String str, String suffix) {
 
 static String trimAtEnd(String str) {
     ('x' + str).trim().substring(1)
-}
-
-static String getTeamCityServerUrl() {
-    def properties = new Properties();
-    properties.load(new FileInputStream(System.getenv('TEAMCITY_BUILD_PROPERTIES_FILE')))
-    println properties
-    properties.getProperty('teamcity.serverUrl')
 }
