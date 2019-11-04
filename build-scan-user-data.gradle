@@ -40,6 +40,8 @@ void tagCiOrLocal() {
     buildScan.tag(isCi() ? 'CI' : 'LOCAL')
 }
 
+println System.getenv()
+
 void addCiMetadata() {
     if (isJenkins()) {
         if (System.getenv('BUILD_URL')) {
